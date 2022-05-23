@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <!-- No favicon -->
+  <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+  <title>Page Not Found</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * {
+      line-height: 1.2;
+      margin: 0;
+    }
+
+    html {
+     --article-text-color: #000;
+     --background-color: #fff;
+     --text-link: #2680d5;
+    }
+
+    @media screen and (prefers-color-scheme: dark) {
+      html, html[data-theme='dark'] {
+        --article-text-color: #fff;
+        --background-color: #1e1e1e;
+        --text-link: #3b91e2;
+      }
+    }
+
+    html {
+      background-color: var(--background-color);
+      color: var(--article-text-color);
+      font-family: optima, sans-serif;
+      height: 100%;
+      display: table;
+      text-align: center;
+      width: 100%;
+    }
+
+    h1 {
+      font-size: 200%;
+      font-family: palatino, serif;
+      font-weight: 400;
+    }
+
+    body {
+      display: table-cell;
+      vertical-align: middle;
+      margin: 2em auto;
+    }
+
+    h1 {
+      font-size: 2em;
+      font-weight: 400;
+    }
+
+    p {
+      margin: 0 auto;
+      width: 280px;
+    }
+
+    @media only screen and (max-width: 280px) {
+
+      body,
+      p {
+        width: 95%;
+      }
+
+      h1 {
+        font-size: 1.5em;
+        margin: 0 0 0.3em;
+      }
+
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Page Not Found</h1>
+  <br />
+  <p>Sorry, but the page you were trying to view does not exist.</p>
+</body>
+
+</html>
+<!-- IE needs 512+ bytes: https://docs.microsoft.com/archive/blogs/ieinternals/friendly-http-error-pages -->

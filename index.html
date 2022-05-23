@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Little Worlds</title>
+  <meta name="description" content="Random little worlds">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta property="og:title" content="Little Worlds">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://little-worlds.jason.today">
+  <meta property="og:image" content="https://little-worlds.jason.today/img/little-worlds-preview.png">
+
+  <!-- No favicon -->
+  <link rel="icon" href="img/little-worlds.ico">
+
+<!--  <link rel="stylesheet" href="css/prism.css">-->
+  <link rel="stylesheet" href="css/normalize.css">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/jason.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.4.1/lib/p5.js"></script>
+<!--  <script src="js/prism.js"></script>-->
+
+  <script type="application/javascript">
+  </script>
+  <style>
+    html {
+      background: #1a1d21;
+    }
+    body {
+      height: auto;
+    }
+    canvas {
+      border: none;
+      border-radius: 0;
+    }
+    #world {
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+<div id="world"></div>
+
+<!-- Library Functions -->
+<script type="application/javascript">
+  // Our Library
+  window.defaultDark = "#1a1d21";
+
+  class Tile {
+    constructor(images, foreground, {background, varyForeground, varyBackground, animated} = {}) {
+      this.images = images;
+      this.foreground = foreground;
+      this.background = background;
+      this.varyForeground = varyForeground ?? 0;
+      this.varyBackground = varyBackground ?? 0;
+      this.animated = animated ?? false;
+      this.state = 0;
+    }
+
+    getImage(p) {
+      const index = this.animated
+        ? this.state
+        : Math.floor(p.random() * this.images.length);
+      return this.images[index];
+    }
+
+    nextState() {
+      this.state = (this.state + 1) % this.images.length;
+    }
+  }
+
+  class Rect {
+    constructor(x, y, width, height) {
+      this.x = x;
+      this.y = y;
+      this.width = width;
+      this.height = height;
+      this.right = x + width;
+      this.bottom = y + height;
+    }
+
+    overlaps(b) {
+      return !(b.x > this.right ||
+        b.right < this.x ||
+        b.y > this.bottom ||
+        b.bottom < this.y);
+    }
+  }
+
+  class SpriteLookup {
+    static dirt = 0;
+    static tree = 1
+    static cactus = 2
+    static hill = 3
+    static water = 4
+    static water2 = 5
+    static wall = 6
+    static floor = 7
+    static door = 8
+    static chest = 9
+  }
+
+  class TileLookup {
+    static dirt = 0
+    static tree = 1
+    static water = 2
+    static iceWater = 3
+    static snow = 4
+    static mogul = 5
+    static ice = 6
+    static sand = 7
+    static rock = 8
+    static pyramid = 9
+    static cactus = 10
+    static desertWater = 11
+    static wall = 12
+    static floor = 13;
+    static door = 14
+    static chest = 15
+  }
+
+  class TileInstance {
+    constructor(x, y, tile) {
+      this.x = x;
+      this.y = y;
+      this.tile = tile;
+    }
+  }
+
+  class Tiles {
+    static lookup = {
+      [TileLookup.tree]: {sprites: [SpriteLookup.tree], foreground: "#008751", varyForeground: 5},
+      [TileLookup.water]: {sprites: [SpriteLookup.water, SpriteLookup.water2], foreground: "#29ADFF", varyForeground: 5, background: "rgb(28,41,56)", animated: true},
+      [TileLookup.iceWater]: {sprites: [SpriteLookup.water, SpriteLookup.water2], foreground: "#29ADFF",  background: "#fafdff", varyForeground: 5, animated: true},
+      [TileLookup.dirt]: {sprites: [SpriteLookup.dirt], foreground: "#523b33", /*background: "#a49d66", */varyForeground: 5},
+      [TileLookup.snow]: {sprites: [SpriteLookup.dirt], foreground: "#e7e8e8", background: "#ffffff", varyForeground: 5},
+      [TileLookup.mogul]: {sprites: [SpriteLookup.hill], foreground: "#ecf5f8", background: "#ffffff", varyForeground: 5},
+      [TileLookup.ice]: {sprites: [SpriteLookup.dirt], foreground: "#523b33", background: "#8cd7e3", varyForeground: 5},
+      [TileLookup.sand]: {sprites: [SpriteLookup.dirt], foreground: "#a49667", background: "#a49d66", varyForeground: 5, varyBackground: true},
+      [TileLookup.pyramid]: {sprites: [SpriteLookup.tree], foreground: "#523b33", background: "#a49d66", varyForeground: 5, varyBackground: true},
+      [TileLookup.rock]: {sprites: [SpriteLookup.dirt], foreground: "#523b33", background: "#a49d66", varyForeground: 5, varyBackground: true},
+      [TileLookup.cactus]: {sprites: [SpriteLookup.cactus], foreground: "#579f37", background: "#a49d66", varyForeground: 5, varyBackground: true},
+      [TileLookup.desertWater]: {sprites: [SpriteLookup.water, SpriteLookup.water2], foreground: "#29ADFF", background: "rgb(107,145,154)", varyForeground: 5, animated: true},
+      [TileLookup.wall]: {sprites: [SpriteLookup.wall], foreground: "#646464", varyForeground: 5, background: window.defaultDark},
+      [TileLookup.floor]: {sprites: [SpriteLookup.floor], foreground: "#2d2d2d",varyForeground: 1, background: window.defaultDark},
+      [TileLookup.door]: {sprites: [SpriteLookup.door], foreground: "#523b33",varyForeground: 1, background: window.defaultDark},
+      [TileLookup.chest]: {sprites: [SpriteLookup.chest], foreground: "#e5ba0c"},
+    }
+
+    constructor(p, spritesheet, tileSize) {
+      this.p = p;
+      this.tileSize = tileSize;
+      this.width = Math.floor(spritesheet.width / tileSize);
+      this.height = Math.floor(spritesheet.height / tileSize);
+      this.sprites = [];
+      this.background = p.createBlankImage(tileSize, tileSize);
+      for (let y = 0; y < spritesheet.height; y += tileSize) {
+        for (let x = 0; x < spritesheet.width; x += tileSize) {
+          const image = spritesheet.get(x, y, tileSize, tileSize);
+          this.sprites.push(image);
+        }
+      }
+    }
+
+    static getTileType(p, biome, n) {
+      let tileType;
+      if (biome === Biomes.forest) {
+        tileType = n > 0.4
+          ? (
+            n > 0.46
+              ? TileLookup.tree
+              : TileLookup.dirt
+          )
+          : TileLookup.water;
+      } else if (biome === Biomes.snow) {
+        tileType = n > 0.3
+          ? (
+            n > 0.6
+              ? TileLookup.mogul
+              : TileLookup.snow
+          )
+          : TileLookup.iceWater;
+      } else {
+        tileType = n > 0.3
+          ? (
+            n > 0.72
+              ? TileLookup.pyramid
+              : (p.random() > 0.95 ? TileLookup.cactus : TileLookup.sand)
+          )
+          : TileLookup.desertWater;
+      }
+      return tileType;
+    }
+
+    getTile(p, tileType) {
+      const tile = Tiles.lookup[tileType];
+      return new Tile(
+        tile.sprites.map((a) => this.sprites[a]),
+        p.color(tile.foreground),
+        {
+          background: p.color(tile.background ?? p.transparent),
+          varyForeground: tile.varyForeground,
+          varyBackground: tile.varyBackground,
+          animated: tile.animated,
+        }
+      );
+    }
+  }
+
+  class Biomes {
+    static forest = 0
+    static snow = 1
+    static desert = 2
+
+    static all() {
+      return [Biomes.desert, Biomes.forest, Biomes.snow];
+    }
+  }
+
+  class Grid {
+    constructor(p, width, height, tiles) {
+      this.width = width;
+      this.height = height;
+      this.grid = new Array(this.width * this.height).fill(0);
+      this.tiles = tiles;
+      this.biome = Biomes.all()[Math.floor(p.random() * Biomes.all().length)];
+    }
+
+    initialize(p) {
+      const biomeScale = 0.01;
+      const scale = 0.1;
+      for (let x = 0; x < this.width; x++) {
+        for (let y = 0; y < this.height; y++) {
+          // p.noiseDetail(2, 0.7);
+          const b = p.noise(biomeScale * x, biomeScale * y);
+          const biomeCoef = b * Biomes.all().length;
+          const biomeIndex = Math.round(biomeCoef);
+          const biome = Biomes.all()[biomeIndex];
+          // p.noiseDetail(2, 0.7);
+          // p.noiseDetail();
+          const noise = p.noise(scale * x, scale * y);
+          const tileType = Tiles.getTileType(p, biome, noise);
+          this.grid[y * this.width + x] = this.tiles.getTile(p, tileType);
+        }
+      }
+    }
+
+    addTile(p, index, tileType) {
+      const floorTile = this.grid[index];
+      if (floorTile == null) {
+        console.error("out of bounds")
+        return;
+      }
+      const itemTile = this.tiles.getTile(p, tileType);
+      if (itemTile.background === p.transparent) {
+        itemTile.background = floorTile.background;
+      }
+      this.grid[index] = itemTile;
+      return itemTile;
+    }
+
+    isWall(p, x, y) {
+      const tile = this.grid[x + y * this.width];
+      if (tile?.tile !== TileLookup.floor) {
+        return false;
+      }
+      debugger;
+      const above = this.grid[x + (y - 1) * this.width]?.tile;
+      const below = this.grid[x + (y + 1) * this.width]?.tile;
+      const left = this.grid[(x - 1) + y * this.width]?.tile;
+      const right = this.grid[(x + 1) + y * this.width]?.tile;
+
+      const tiles = new Set(
+        [above, below, left, right].filter((a) => a != null)
+      );
+      return tiles.size > 1;
+    }
+
+    isDoor(p, x, y) {
+      const tile = this.grid[x + y * this.width];
+      if (tile !== TileLookup.floor) {
+        return false;
+      }
+      const above = this.grid[x + (y - 1) * this.width];
+      const below = this.grid[x + (y + 1) * this.width];
+      const left = this.grid[(x - 1) + y * this.width];
+      const right = this.grid[(x + 1) + y * this.width];
+
+      return (
+        [above, below].filter((a) => a === TileLookup.wall) > 1
+        || [left, right].filter((a) => a === TileLookup.wall) > 1
+      );
+    }
+
+    addRoom(p, x, y, width, height, {addChest} = {}) {
+      const offset = x + y * this.width;
+
+      const tiles = [];
+      const doorCandidates = [];
+      const floorTiles = [];
+
+      for (let dy = 0; dy < height; dy++) {
+        const row = dy * this.width;
+        for (let dx = 0; dx < width; dx++) {
+          const left = dx === 0;
+          const right = dx === width - 1;
+          const top = dy === 0;
+          const bottom = dy === height - 1;
+          const xSide = left || right;
+          const ySide = top || bottom;
+          const isWall = xSide || ySide;
+
+          let tile = isWall ? TileLookup.wall : TileLookup.floor;
+          tiles.push({index: offset + row + dx, tile, x: x + dx, y: y + dy});
+          const isCorner = xSide && ySide;
+          if (!isCorner && isWall) {
+            doorCandidates.push({
+              x: x + dx, y: y + dy, left, right, top, bottom, index: offset + row + dx
+            });
+          } else if (!isWall) {
+            floorTiles.push({x: x + dx, y: y + dy, index: tiles.length - 1});
+          }
+        }
+      }
+
+      const returnTiles = [];
+      for (let i = 0; i < tiles.length; i++) {
+        const {index, tile, x, y} = tiles[i];
+        const tileObject = this.addTile(p, index, tile);
+        // returnTiles.push(new TileInstance(x, y, tileObject))
+      }
+
+      const doorway = p.random(doorCandidates);
+      this.addTile(p, doorway.index, TileLookup.door);
+      // this.addTile(p, doorway.index, TileLookup.door);
+
+      if (addChest) {
+        this.addTile(p, tiles[p.random(floorTiles).index].index, TileLookup.chest);
+      }
+
+      return {
+        tiles: returnTiles,
+        doorway,
+      }
+    }
+
+    addCampsite(p) {
+
+    }
+
+    addRoad(p) {
+
+    }
+
+    addChest(p, index) {
+      this.addTile(p, index, TileLookup.chest);
+    }
+
+    addPath(p, a, b) {
+      const minX = Math.min(a.x, b.x);
+      const minY = Math.min(a.y, b.y);
+      const aFirst = a.x === minX;
+      const firstY = aFirst ? a.y : b.y;
+      const offset = firstY * this.width;
+
+      if (aFirst && a.horizontal || !aFirst && b.horizontal) {
+        for (let y = minY; y < Math.max(a.y, b.y); y++) {
+          this.addTile(p, y * this.width, TileLookup.floor);
+        }
+        for (let x = minX; x < Math.max(a.x, b.x); x++) {
+          this.addTile(p, x + offset, TileLookup.floor);
+        }
+
+      }
+    }
+
+    addPaths(p, doorways) {
+      const sortedDoorways = doorways.sort((a, b) =>
+        (a.x + a.y) - (b.x + b.y)
+      );
+      for (let i = 0; i < sortedDoorways.length - 1; i++) {
+        this.addPath(p, doorways[i], doorways[i + 1]);
+      }
+    }
+
+    addStructures(p) {
+      const doorways = [];
+      const addedRooms = [];
+      const maxRooms = 10;
+
+      const candidateRooms = new Array(maxRooms).fill(0).map(() => ({
+        width: p.randomInt(3, 16), height: p.randomInt(3, 16)
+      }));
+
+      candidateRooms.forEach((room) => {
+        const rect = new Rect(
+          p.randomInt(0, 1000), p.randomInt(0, 1000), room.width, room.height
+        );
+        let overlaps = !!addedRooms.filter((r) => rect.overlaps(r)).length;
+        if (!overlaps) {
+          addedRooms.push(rect);
+        }
+      });
+
+      addedRooms.forEach(({x, y, width, height}) => {
+        const room = this.addRoom(p, x, y, width, height, {addChest: p.noise(x, y) > 0.5});
+        room.tiles.forEach((t) => {
+          if (this.isWall(p, t.x, t.y)) {
+            t.tile = TileLookup.wall;
+          }
+        });
+        doorways.push(room.doorway);
+      });
+
+      // Connect them
+      // this.addPaths(p, doorways);
+
+      // Campsite
+      this.addCampsite(p);
+
+      // Road
+      this.addRoad(p);
+    }
+
+    draw(p, tiles) {
+      p.loadPixels();
+
+      for (let x = 0; x < this.width; x++) {
+        for (let y = 0; y < this.height; y++) {
+          const tile = this.get(x, y);
+          p.setTile(x, y, tile);
+        }
+      }
+
+      p.updatePixels();
+    }
+
+    get(x, y) {
+      return this.grid[y * this.width + x];
+    }
+  }
+
+  function make(id, width, height, zoom, fn) {
+    return new p5((p) => {
+      p.isWEBGL = false;
+      p.swatchBarSpacer = null;
+      p.backgroundColor = p.color(window.defaultDark);
+      p.tilesToUpdate = [];
+
+      p.defaultDark = p.color(window.defaultDark);
+      p.transparent = p.color("#00000000");
+
+      p.seed = Math.floor(p.random(0, Number.MAX_SAFE_INTEGER));
+
+      p.randomInt = (min, max) => Math.floor(p.random(min, max));
+
+      let spritesheet;
+      const tileSize = 8;
+
+      // Draw a pixel - don't forget to update when done!
+      p.setPixel = (i, color) => {
+        try {
+          p.pixels.set(p.color(color).levels, 4 * i);
+        } catch (e) {
+          console.error(e);
+        }
+      };
+
+      p.setTile = (xTile, yTile, tile) => {
+        const tileIndex = tileSize * (xTile + yTile * p.width);
+        const image = tile.getImage(p);
+        image.loadPixels();
+        let foreground = tile.foreground;
+        let background = tile.background ?? p.backgroundColor;
+
+        if (tile.varyForeground) {
+          const amt = tile.varyForeground;
+          foreground = p.varyColor(
+            foreground,
+            {
+              // hueFn: () => p.noise(scale * x, scale * y) * 255,
+              satFn: () => p.noiseRange(xTile, yTile, amt),
+              lightFn: () => p.noiseRange(xTile, yTile, 4 * amt)
+            }
+          );
+
+          if (tile.varyBackground) {
+            let scale = 0.3;
+            background = p.varyColor(
+              background,
+              {
+                // hueFn: () => p.noise(scale * x, scale * y) * 255,
+                satFn: () => p.noiseRange(scale * xTile, scale * yTile, 2),
+                lightFn: () => p.noiseRange(scale * xTile, scale * yTile, 2)
+              }
+            );
+          }
+        }
+
+        for (let y = 0; y < tileSize; y++) {
+          const row = y * tileSize;
+          for (let x = 0; x < tileSize; x++) {
+            const i = x + row;
+            const offset = 4 * i;
+            const index = tileIndex + x + y * p.width;
+            if (image.pixels[offset + 3] > 0) {
+              p.setPixel(index, foreground);
+            } else {
+              p.setPixel(index, background);
+            }
+          }
+        }
+      };
+
+      p.zoom = 1;
+      p.setZoom = (zoom) => {
+        p.zoom = zoom;
+        if (p.canvas) {
+          p.canvas.elt.style.width = `${p.canvas.width * zoom}px`;
+          p.canvas.elt.style.height = `${p.canvas.height * zoom}px`;
+        }
+      }
+
+      p.varyColor = (color, {hueFn: h, satFn: s, lightFn: l} = {}) => {
+        const hueFn = h ?? (() => 0);
+        const satFn = s ?? (() => p.random(-5, 5));
+        const lightFn = l ?? (() => p.random(-5, 5));
+        let hue = p.floor(p.hue(color) + hueFn());
+        let saturation = p.constrain(p.saturation(color) + p.floor(satFn()), 0, 100);
+        let lightness = p.constrain(p.lightness(color) + p.floor(lightFn()), 0, 100);
+        return p.color(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
+      };
+
+      p.noiseRange = (x, y, c) => p.noise(x, y) * 2 * c - c;
+      p.tiles = null;
+
+      p.initialize = () => {
+        p.noiseSeed(p.seed);
+        p.randomSeed(p.seed);
+        const tiles = p.tiles;
+
+        const grid = new Grid(
+          p,
+          Math.floor(p.width / tiles.tileSize),
+          Math.floor(p.height / tiles.tileSize),
+          tiles,
+        );
+
+        grid.initialize(p);
+        grid.addStructures(p);
+        grid.draw(p, tiles);
+
+        p.tilesToUpdate = [];
+        for (let x = 0; x < grid.width; x++) {
+          for (let y = 0; y < grid.height; y++) {
+            const tile = grid.get(x, y);
+            if (tile.animated) {
+              p.tilesToUpdate.push(new TileInstance(x, y, tile));
+            }
+          }
+        }
+      }
+
+      p.setup = () => {
+        // let seed = 904;
+        // if (window.location.hash) {
+        //   seed = Number.parseInt(seed);
+        //   if (isNaN(seed)) {
+        //     seed = null;
+        //   }
+        // }
+        // seed = seed ?? Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+        // window.location.hash = seed.toString();
+
+        // Disable context menu
+        for (let element of document.getElementsByClassName("p5Canvas")) {
+          // element.addEventListener("contextmenu", (e) => e.preventDefault());
+          element.addEventListener("touchstart", (e) => e.preventDefault());
+          element.addEventListener("touchend", (e) => e.preventDefault());
+          element.addEventListener("touchmove", (e) => e.preventDefault());
+        }
+
+        // 60 FPS
+        p.frameRate(60);
+
+        // Ignore pixel density (Hi-DPI)
+        p.pixelDensity(1);
+
+        p.canvas = p.createCanvas(Math.floor(width / zoom), Math.floor(height / zoom), p.P2D);
+
+        p.setZoom(zoom);
+
+        p.loadImage('img/little-worlds-sprites.png', image => {
+          spritesheet = image;
+          p.tiles = new Tiles(p, spritesheet, tileSize);
+          p.initialize();
+        });
+      }
+
+      p.updating = false;
+      p.animateScale = 1;
+      p.time = 0;
+
+      p.draw = () => {
+        if (p.updating) { return; }
+        p.time += 0.1;
+        p.noLoop();
+        p.updating = true;
+        setTimeout(() => {
+          for (let i = 0; i < p.tilesToUpdate.length; i++) {
+            const tileInstance = p.tilesToUpdate[i];
+            if (p.noise(
+              p.animateScale * tileInstance.x,
+              p.animateScale * tileInstance.y,
+              p.time,
+            ) > 0.5) {
+              tileInstance.tile.nextState();
+            }
+            p.setTile(tileInstance.x, tileInstance.y, tileInstance.tile);
+          }
+          p.updating = false;
+          p.updatePixels();
+          p.loop();
+        }, 1000);
+      };
+
+      p.resizing = false;
+
+      p.windowResized = () => {
+        if (p.resizing) {
+          return;
+        }
+        p.resizing = true;
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        p.resizeCanvas(Math.floor(width / p.zoom), Math.floor(height / p.zoom));
+        p.setZoom(p.zoom);
+        p.initialize();
+        p.resizing = false;
+      };
+
+      p.createBlankImage = (width, height) => {
+        const img = p.createImage(width, height);
+        img.loadPixels();
+        img.pixels.fill(255);
+        img.updatePixels();
+        return img;
+      }
+    }, id);
+  }
+
+  make("world", window.innerWidth, window.innerHeight, 2, () => {});
+</script>
+</body>
+</html>
