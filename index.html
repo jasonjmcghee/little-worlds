@@ -650,8 +650,12 @@
       }
     }, id);
   }
-
+  
   make("world", window.innerWidth, window.innerHeight, 2, () => {});
+
+  document.addEventListener('click', function() {
+    make("world", window.innerWidth, window.innerHeight, 2, () => {});
+  }, false);
 </script>
 </body>
 </html>
